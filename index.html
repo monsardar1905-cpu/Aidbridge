@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AidBridge | Community Humanitarian Lifeline</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Dynamic Onboarding Modal -->
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="icon">🛡️</span>
+        <h2>AidBridge Access Portal</h2>
+        <p>Select your designation to proceed</p>
+      </div>
+
+      <!-- Role Selector Tabs -->
+      <div class="role-selector">
+        <label class="role-option">
+          <input type="radio" name="userRole" value="Citizen" id="citizenRadio" checked />
+          <span class="role-box">
+            <span class="role-icon">🙋</span>
+            <strong>Citizen</strong>
+            <small>Request or offer local help</small>
+          </span>
+        </label>
+
+        <label class="role-option">
+          <input type="radio" name="userRole" value="Rescue Team" id="rescueRadio" />
+          <span class="role-box">
+            <span class="role-icon">⛑️</span>
+            <strong>Rescue Team</strong>
+            <small>Authorized responders</small>
+          </span>
+        </label>
+      </div>
+
+      <!-- CITIZEN FORM -->
+      <form id="citizenForm">
+        <div class="form-group">
+          <label for="citName">Full Name</label>
+          <input type="text" id="citName" placeholder="e.g. Ramesh Kumar" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="citAge">Age</label>
+            <input type="number" id="citAge" placeholder="e.g. 24" min="10" max="110" required />
+          </div>
+          <div class="form-group">
+            <label for="citPhone">Phone Number</label>
+            <input type="tel" id="citPhone" placeholder="10-digit number" pattern="[0-9]{10}" required />
+          </div>
+        </div>
+        <button type="submit" class="submit-btn">Continue as Citizen</button>
+      </form>
+
+      <!-- RESCUE OFFICER FORM -->
+      <form id="rescueForm" class="hidden">
+        <div class="form-group">
+          <label for="officerId">Rescue Login ID</label>
+          <input type="email" id="officerId" placeholder="e.g. akshat32.fr@rescue.rss1" required />
+        </div>
+        <div class="form-group">
+          <label for="officerPass">Security Password</label>
+          <input type="password" id="officerPass" placeholder="••••••••" required />
+        </div>
+        <div class="form-group">
+          <label for="officerTeam">Assigned Team / Wing</label>
+          <select id="officerTeam">
+            <option value="Medical">Medical Corps</option>
+            <option value="Evacuation">Evacuation & Search</option>
+            <option value="Food & Logistics">Food & Logistics</option>
+            <option value="Disaster Ops">Disaster Rapid Operations</option>
+          </select>
+        </div>
+        <button type="submit" class="submit-btn rescue-submit">Verify & Login</button>
+        <p id="rescueError" class="auth-error hidden"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Application Shell -->
+  <div class="app-wrapper">
+    <header class="navbar">
+     <div class="logo">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 3C12.477 3 8 7.477 8 13C8 20.5 18 33 18 33C18 33 28 20.5 28 13C28 7.477 23.523 3 18 3ZM18 17.5C15.515 17.5 13.5 15.485 13.5 13C13.5 10.515 15.515 8.5 18 8.5C20.485 8.5 22.5 10.515 22.5 13C22.5 15.485 20.485 17.5 18 17.5Z" fill="#d90429"/>
+          <circle cx="18" cy="13" r="2.5" fill="white"/>
+        </svg>
+        <div>
+          <h1>AidBridge</h1>
+          <p class="tagline">Disaster Relief & Mutual Aid Network</p>
+        </div>
+      </div>
+
+      <div class="nav-right">
+        <!-- AI ASSISTANT DROPDOWN TOGGLE -->
+        <button id="aiToggleBtn" class="ai-nav-btn" type="button" title="Open Emergency AI Assistant">
+          <span class="ai-pulse"></span>
+          🤖 LifeLine AI
+        </button>
+        <!-- BLACKOUT MODE TOGGLE -->
+        <button id="blackoutBtn" class="ai-nav-btn" type="button" title="Toggle Battery Saver Blackout Mode" onclick="toggleBlackoutMode()" style="background:#18181b; color:#22c55e; border:1px solid #27272a;">
+          🔋 Blackout
+        </button>
+
+        <div class="user-chip">
+          <span class="role-tag" id="displayRoleBadge">Citizen</span>
+          <span class="user-name" id="displayGreeting">Hi, User!</span>
+          <button class="switch-btn" id="logoutBtn" title="Switch Account">↻ Switch</button>
+        </div>
+
+        <div class="citizen-beacon" id="citizenLiveBeacon">
+          <span class="pulse-dot">●</span> Line Monitored
+        </div>
+      </div>
+    </header>
+
+    <!-- SLIDE-OUT AI ASSISTANT DRAWER -->
+    <div id="aiDrawer" class="ai-drawer hidden">
+      <div class="ai-drawer-header">
+        <div class="ai-title-row">
+          <span class="ai-avatar">🤖</span>
+          <div>
+            <h3>LifeLine AI</h3>
+            <small class="ai-status" style="color: #64748b; font-size: 0.75rem;">● Live AI Protocol Active</small>
+          </div>
+        </div>
+        <button id="aiCloseBtn" class="drawer-close-btn" type="button">&times;</button>
+      </div>
+
+      <div class="ai-quick-tags">
+        <button type="button" class="quick-chip" data-prompt="How to purify dirty flood water?">💧 Purify Water</button>
+        <button type="button" class="quick-chip" data-prompt="How to stop severe bleeding with a tourniquet?">🩸 Stop Bleeding</button>
+        <button type="button" class="quick-chip" data-prompt="Step by step CPR instructions">🫀 CPR Steps</button>
+        <button type="button" class="quick-chip" data-prompt="How to treat hypothermia?">❄️ Hypothermia</button>
+      </div>
+
+      <div id="aiChatMessages" class="ai-messages-container">
+        <div class="ai-msg bot">
+          <div class="bubble">
+            <strong>LifeLine AI:</strong> I am your emergency survival & first aid assistant. Ask me for immediate step-by-step triage guidance.
+          </div>
+        </div>
+      </div>
+
+      <form id="aiChatForm" class="ai-drawer-form">
+        <input type="text" id="aiUserInput" placeholder="Ask for emergency first aid / survival steps..." autocomplete="off" required />
+        <button type="submit" class="ai-send-btn">➤</button>
+      </form>
+    </div>
+
+    <!-- ================= CITIZEN VIEW ================= -->
+    <main id="citizenView" class="view-container hidden">
+
+      <!-- 🚨 CRITICAL DISASTER HOTLINES (ONE-TAP DISPATCH) -->
+      <section class="emergency-hud">
+        <div class="hud-header">
+          <div class="hud-title-group">
+            <span class="live-beacon"></span>
+            <h3>CRITICAL DISASTER HOTLINES</h3>
+          </div>
+          <span class="hud-sub">One-tap direct priority dispatch</span>
+        </div>
+
+        <div class="hotline-grid">
+          <a href="tel:112" class="hotline-card card-unified">
+            <div class="card-top">
+              <span class="service-tag">POLICE & RESCUE</span>
+              <span class="icon">🚨</span>
+            </div>
+            <div class="dial-number">112</div>
+            <div class="card-desc">National Emergency Response</div>
+            <div class="card-action">Direct Dispatch →</div>
+          </a>
+
+          <a href="tel:108" class="hotline-card card-medical">
+            <div class="card-top">
+              <span class="service-tag">MEDICAL AID</span>
+              <span class="icon">🚑</span>
+            </div>
+            <div class="dial-number">108</div>
+            <div class="card-desc">Ambulance & Trauma Care</div>
+            <div class="card-action">Direct Dispatch →</div>
+          </a>
+
+          <a href="tel:1078" class="hotline-card card-disaster">
+            <div class="card-top">
+              <span class="service-tag">NDRF DISASTER</span>
+              <span class="icon">🌊</span>
+            </div>
+            <div class="dial-number">1078</div>
+            <div class="card-desc">Flood & Structural Rescue</div>
+            <div class="card-action">Direct Dispatch →</div>
+          </a>
+
+          <a href="tel:101" class="hotline-card card-fire">
+            <div class="card-top">
+              <span class="service-tag">FIRE DEPT</span>
+              <span class="icon">🚒</span>
+            </div>
+            <div class="dial-number">101</div>
+            <div class="card-desc">Fire & Structural Extrication</div>
+            <div class="card-action">Direct Dispatch →</div>
+          </a>
+        </div>
+      </section>
+
+      <div class="citizen-grid-layout">
+        <!-- SOS Distress Form -->
+        <section class="panel form-panel">
+          <div class="panel-header">
+            <h2>🚨 Send SOS / Relief Request</h2>
+            <span class="role-note">Emergency Direct Link</span>
+          </div>
+
+          <form id="aidForm">
+            <div class="form-group">
+              <label for="requestTitle">What do you urgently need?</label>
+              <input type="text" id="requestTitle" placeholder="e.g. Drinking water, Insulin, Evacuation boat" required />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="requestCategory">Category</label>
+                <select id="requestCategory">
+                  <option value="Medical">Medical Aid</option>
+                  <option value="Water/Food">Water & Food</option>
+                  <option value="Shelter">Shelter & Warmth</option>
+                  <option value="Rescue">Rescue / Trapped</option>
+                  <option value="Other">General Support</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="requestUrgency">Severity Level</label>
+                <select id="requestUrgency">
+                  <option value="Critical">🔴 Critical (Life at risk)</option>
+                  <option value="High">🟠 High Priority</option>
+                  <option value="Normal">🟢 Normal Relief</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="requestLocation">Exact Location / Landmark</label>
+              <input type="text" id="requestLocation" placeholder="e.g. Flat 302, Green Valley Apt, near Block B" required />
+            </div>
+
+            <button type="submit" class="submit-btn sos-btn">Broadcast Emergency Call</button>
+          </form>
+
+          <div style="font-weight: 700; font-size: 0.95rem; margin: 18px 0 8px 0; color: #333;">Your Active Emergency Beacons</div>
+          <div id="citizenFeedList" class="feed-list compact-feed" style="max-height: 250px;"></div>
+        </section>
+
+        <!-- Official Crisis Bulletins -->
+        <section class="panel">
+          <div class="panel-header">
+            <h2>📢 Official Crisis Bulletins & News</h2>
+            <span class="live-beacon pulse-dot" style="font-size:12px;">● Live Broadcast</span>
+          </div>
+          <div id="newsFeedList" class="news-list"></div>
+        </section>
+      </div>
+
+      <!-- Local Mesh Radio-Chat -->
+      <section class="panel mesh-comms-panel">
+        <div class="panel-header">
+          <h2>📻 Local Mesh Radio-Chat (Zero Internet P2P Channel)</h2>
+          <small>Operating over local router / emergency node</small>
+        </div>
+        <div class="mesh-chat-wrapper">
+          <div id="meshMessagesList" class="mesh-messages"></div>
+          <form id="meshChatForm" class="mesh-input-row">
+            <input type="text" id="meshTextInput" placeholder="Broadcast a short message to nearby survivors..." required />
+            <button type="submit" class="mesh-send-btn">Transmit</button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <!-- ================= RESCUE COMMAND VIEW ================= -->
+    <main id="rescueView" class="view-container hidden">
+      <div class="command-bar">
+        <div class="command-stats">
+          <div class="stat-box red">
+            <span id="rescueCriticalCount">0</span>
+            <small>Critical</small>
+          </div>
+          <div class="stat-box yellow">
+            <span id="rescuePendingCount">0</span>
+            <small>Pending</small>
+          </div>
+          <div class="stat-box green">
+            <span id="rescueResolvedCount">0</span>
+            <small>Resolved</small>
+          </div>
+        </div>
+
+        <div class="filter-tabs">
+          <button class="filter-btn active" data-filter="All">All Feed</button>
+          <button class="filter-btn" data-filter="Critical">Critical Only</button>
+          <button class="filter-btn" data-filter="Medical">Medical</button>
+          <button class="filter-btn" data-filter="Rescue">Rescue / Evac</button>
+        </div>
+      </div>
+
+      <div class="rescue-main-split">
+        <section class="panel full-board">
+          <div class="panel-header">
+            <h2>Command Incident Dispatch Queue</h2>
+            <span class="live-beacon pulse-dot" style="font-size:12px;">● Live Monitoring Active</span>
+          </div>
+          <div id="rescueFeedList" class="feed-list" style="max-height: 540px;"></div>
+        </section>
+
+        <section class="panel rescue-sidebar">
+          <div style="margin-bottom: 20px;">
+            <h3 style="font-size: 1.1rem; margin-bottom:10px;">📢 Broadcast Official Advisory</h3>
+            <form id="broadcastAlertForm">
+              <div class="form-group">
+                <input type="text" id="alertTitle" placeholder="Advisory Headline" required />
+              </div>
+              <div class="form-group">
+                <textarea id="alertContent" rows="2" placeholder="Actionable instruction..." required></textarea>
+              </div>
+              <button type="submit" class="submit-btn" style="min-height:40px;">Publish to Citizen Feed</button>
+            </form>
+          </div>
+
+          <hr style="border:0; border-top:1px solid #e2e8f0; margin:16px 0;" />
+
+          <div>
+            <h3 style="font-size: 1.1rem; margin-bottom:10px;">📻 Local Mesh Relay</h3>
+            <div id="rescueMeshMessagesList" class="mesh-messages" style="max-height: 200px;"></div>
+            <form id="rescueMeshChatForm" class="mesh-input-row">
+              <input type="text" id="rescueMeshTextInput" placeholder="Transmit responder advisory..." required />
+              <button type="submit" class="mesh-send-btn">Send</button>
+            </form>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
