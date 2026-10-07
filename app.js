@@ -1,4 +1,20 @@
 // =========================================================
+// GEOLOCATION TRACKING
+// =========================================================
+let userLat = null;
+let userLon = null;
+
+if ("geolocation" in navigator) {
+    navigator.geolocation.watchPosition(
+        (position) => {
+            userLat = position.coords.latitude;
+            userLon = position.coords.longitude;
+        },
+        (error) => console.warn("Location access denied or unavailable.")
+    );
+}
+
+// =========================================================
 // AidBridge - Disaster Relief & Mutual Aid Network Frontend
 // =========================================================
 
@@ -177,7 +193,7 @@ function loginSuccess() {
 }
 
 // =========================================================
-// 2. SOS BEACON NETWORK SYNCHRONIZATION (WITH SMS FALLBACK)
+// 2. SOS BEACON NETWORK SYNCHRONIZATION
 // =========================================================
 
 function setupSOSEvents() {
@@ -192,7 +208,9 @@ function setupSOSEvents() {
         urgency: document.getElementById("requestUrgency").value,
         location: document.getElementById("requestLocation").value.trim(),
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        sender: currentUser.name 
+        sender: currentUser.name,
+        lat: userLat,
+        lon: userLon
       };
 
       if (navigator.onLine) {
@@ -222,7 +240,7 @@ function setupSOSEvents() {
 
 async function fetchBeacons() {
   try {
-    const res = await fetch(`/api/beacons?t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`/api/beacons?t=${Date.now()}&lat=${userLat || ''}&lon=${userLon || ''}`, { cache: "no-store" });
     const data = await res.json();
     citizenBeacons = data || [];
     renderBeacons();
@@ -272,9 +290,10 @@ function renderBeacons() {
     });
 
     if (filtered.length === 0) {
-      rescueList.innerHTML = "<p style='color:#64748b; font-size:0.85rem;'>No incidents matching filter.</p>";
+      rescueList.innerHTML = "<p style='color:#64748b; font-size:0.85rem;'>No incidents nearby matching filter.</p>";
     } else {
       filtered.forEach((b) => {
+        const distanceText = b.distance_away !== undefined ? ` • ${b.distance_away}km away` : '';
         const card = document.createElement("div");
         card.className = `ticket-card tier-${b.urgency}`;
         card.innerHTML = `
@@ -282,7 +301,7 @@ function renderBeacons() {
             <span class="ticket-title">${escapeHTML(b.title)}</span>
             <span class="urgency-pill pill-${b.urgency}">${b.urgency}</span>
           </div>
-          <div class="ticket-details">📍 ${escapeHTML(b.location)} | [${escapeHTML(b.category)}]</div>
+          <div class="ticket-details">📍 ${escapeHTML(b.location)}${distanceText} | [${escapeHTML(b.category)}]</div>
           <div class="ticket-footer">
             <span>Reported: ${b.time}</span>
             ${
@@ -347,7 +366,9 @@ function setupBulletinEvents() {
             title: document.getElementById("alertTitle").value.trim(),
             content: document.getElementById("alertContent").value.trim(),
             time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            sender: currentUser.name || "Command Dispatch"
+            sender: currentUser.name || "Command Dispatch",
+            lat: userLat,
+            lon: userLon
           })
         });
         alertForm.reset();
@@ -361,7 +382,7 @@ function setupBulletinEvents() {
 
 async function fetchBulletins() {
   try {
-    const res = await fetch(`/api/bulletins?t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`/api/bulletins?t=${Date.now()}&lat=${userLat || ''}&lon=${userLon || ''}`, { cache: "no-store" });
     bulletins = await res.json();
     renderBulletins();
   } catch (err) {
@@ -374,7 +395,7 @@ function renderBulletins() {
   if (!newsFeed) return;
   newsFeed.innerHTML = "";
   if (!bulletins || bulletins.length === 0) {
-    newsFeed.innerHTML = "<p style='color:#64748b; font-size:0.85rem;'>No official bulletins broadcast yet.</p>";
+    newsFeed.innerHTML = "<p style='color:#64748b; font-size:0.85rem;'>No nearby bulletins broadcast yet.</p>";
     return;
   }
   bulletins.forEach((item) => {
@@ -390,7 +411,7 @@ function renderBulletins() {
 }
 
 // =========================================================
-// 4. LOCAL MESH RADIO CHAT (WITH SMS FALLBACK)
+// 4. LOCAL MESH RADIO CHAT
 // =========================================================
 
 function setupMeshEvents() {
@@ -418,7 +439,9 @@ async function transmitMesh(text) {
     sender: currentUser.name || "Survivor",
     role: currentUser.role,
     text: text,
-    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    lat: userLat,
+    lon: userLon
   };
 
   if (navigator.onLine) {
@@ -445,7 +468,7 @@ async function transmitMesh(text) {
 
 async function fetchMessages() {
   try {
-    const res = await fetch(`/api/messages?t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`/api/messages?t=${Date.now()}&lat=${userLat || ''}&lon=${userLon || ''}`, { cache: "no-store" });
     meshMessages = await res.json();
     renderMessages();
   } catch (err) {
@@ -539,6 +562,7 @@ async function queryAIBackend(prompt) {
   if (lower.includes("hypothermia") || lower.includes("cold")) return "HYPOTHERMIA: Move to dry shelter. Remove wet clothes. Warm body core (chest, neck, groin) first using dry blankets.";
   return "Stay secure. Keep device battery preserved and broadcast your coordinates through the SOS beacon form immediately.";
 }
+
 // =========================================================
 // ULTRA LOW-POWER BLACKOUT MODE TOGGLE
 // =========================================================

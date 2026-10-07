@@ -3,6 +3,8 @@ import json
 import csv
 import time
 import pickle
+import math
+from urllib.parse import urlparse, parse_qs
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from google import genai
 from google.genai import types
@@ -21,6 +23,26 @@ except Exception as e:
     client = None
 
 # =========================================================
+# GEOSPATIAL ENGINE (Haversine Formula)
+# =========================================================
+def calculate_distance(lat1, lon1, lat2, lon2):
+    if not lat1 or not lon1 or not lat2 or not lon2:
+        return 0.0
+    try:
+        R = 6371.0 # Earth radius in kilometers
+        lat1, lon1, lat2, lon2 = map(float, [lat1, lon1, lat2, lon2])
+        
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        
+        a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        
+        return R * c # Distance in km
+    except Exception:
+        return 9999.0 # Fallback if coordinate parsing fails
+
+# =========================================================
 # IN-MEMORY DATA STORES
 # =========================================================
 
@@ -30,7 +52,9 @@ bulletins = [
         "title": "Flood Gate 4 Warning Notice",
         "content": "Sluice gates will release nominal overflow at 17:00 hrs. Evacuate low-lying riverbanks immediately.",
         "time": "14:00",
-        "sender": "Disaster Command HQ"
+        "sender": "Disaster Command HQ",
+        "lat": None,
+        "lon": None
     }
 ]
 
@@ -40,7 +64,9 @@ mesh_messages = [
         "sender": "Command Base",
         "role": "Rescue Team",
         "text": "Local mesh network active on base frequency. Keep distress calls concise.",
-        "time": "14:00"
+        "time": "14:00",
+        "lat": None,
+        "lon": None
     }
 ]
 
@@ -53,7 +79,9 @@ sos_beacons = [
         "location": "Sector 4, Community Shelter Block B",
         "time": "14:10",
         "status": "Pending",
-        "sender": "Anonymous" 
+        "sender": "Anonymous",
+        "lat": None,
+        "lon": None
     }
 ]
 
@@ -75,19 +103,46 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self._set_headers(200)
 
-    # --- GET ROUTES ---
+    # --- GET ROUTES (Now with Location Filtering) ---
     def do_GET(self):
-        clean_path = self.path.split('?')[0]
+        parsed_url = urlparse(self.path)
+        clean_path = parsed_url.path
+        query_params = parse_qs(parsed_url.query)
+        
+        # Extract requester's location from URL parameters
+        req_lat = query_params.get('lat', [None])[0]
+        req_lon = query_params.get('lon', [None])[0]
+
+        # Helper to filter items beyond 400km radius
+        def filter_by_distance(items):
+            if not req_lat or not req_lon:
+                return items
+            
+            filtered_list = []
+            for item in items:
+                i_lat = item.get('lat')
+                i_lon = item.get('lon')
+                
+                # If both item and user have coordinates, calculate distance
+                if i_lat and i_lon:
+                    dist = calculate_distance(req_lat, req_lon, i_lat, i_lon)
+                    if dist <= 400:
+                        item['distance_away'] = round(dist, 1)
+                        filtered_list.append(item)
+                else:
+                    # Include legacy items without location data so nothing breaks
+                    filtered_list.append(item)
+            return filtered_list
 
         if clean_path == "/api/bulletins":
             self._set_headers()
-            self.wfile.write(json.dumps(bulletins).encode("utf-8"))
+            self.wfile.write(json.dumps(filter_by_distance(bulletins)).encode("utf-8"))
         elif clean_path == "/api/messages":
             self._set_headers()
-            self.wfile.write(json.dumps(mesh_messages).encode("utf-8"))
+            self.wfile.write(json.dumps(filter_by_distance(mesh_messages)).encode("utf-8"))
         elif clean_path == "/api/beacons":
             self._set_headers()
-            self.wfile.write(json.dumps(sos_beacons).encode("utf-8"))
+            self.wfile.write(json.dumps(filter_by_distance(sos_beacons)).encode("utf-8"))
         else:
             super().do_GET()
 
@@ -170,7 +225,7 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
                 "message": "" if authenticated else error_message
             }).encode("utf-8"))
 
-        # 3. Citizen SOS Beacon Broadcast (With Keyword Auto-Scoring)
+        # 3. Citizen SOS Beacon Broadcast (With Keyword Auto-Scoring & Location)
         elif clean_path == "/api/beacons":
             title = payload.get("title", "SOS Alert")
             category = payload.get("category", "General")
@@ -189,6 +244,8 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
                 "category": category,
                 "urgency": urgency,
                 "location": payload.get("location", "Unknown Location"),
+                "lat": payload.get("lat"),
+                "lon": payload.get("lon"),
                 "time": payload.get("time", "Now"),
                 "status": "Pending",
                 "sender": payload.get("sender", "Unknown") 
@@ -207,12 +264,14 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
             self._set_headers(200)
             self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
 
-        # 5. Official Crisis Bulletin Broadcast
+        # 5. Official Crisis Bulletin Broadcast (With Location)
         elif clean_path == "/api/bulletins":
             new_bulletin = {
                 "id": len(bulletins) + 1,
                 "title": payload.get("title", "Emergency Broadcast"),
                 "content": payload.get("content", ""),
+                "lat": payload.get("lat"),
+                "lon": payload.get("lon"),
                 "time": payload.get("time", "Now"),
                 "sender": payload.get("sender", "Command")
             }
@@ -220,13 +279,15 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
             self._set_headers(200)
             self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
 
-        # 6. Mesh Radio Message
+        # 6. Mesh Radio Message (With Location)
         elif clean_path == "/api/messages":
             new_msg = {
                 "id": len(mesh_messages) + 1,
                 "sender": payload.get("sender", "Anonymous"),
                 "role": payload.get("role", "Citizen"),
                 "text": payload.get("text", ""),
+                "lat": payload.get("lat"),
+                "lon": payload.get("lon"),
                 "time": payload.get("time", "Now")
             }
             mesh_messages.append(new_msg)

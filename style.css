@@ -786,6 +786,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
 .aidbot-body { flex: 1; padding: 12px; overflow-y: auto; font-size: 0.85rem; -webkit-overflow-scrolling: touch; }
 .aidbot-footer { display: flex; padding: 8px 10px; border-top: 1px solid #eee; gap: 6px; }
 .aidbot-footer input { flex:1; padding:8px 12px; border:1px solid #ccc; border-radius:20px; outline:none; }
+
 /* =========================================================
    BLACKOUT MODE (Battery Saver Theme)
    ========================================================= */
@@ -818,4 +819,14 @@ body.blackout-mode h2,
 body.blackout-mode h3, 
 body.blackout-mode strong {
   color: #ffffff !important;
+}
+
+/* True Blackout Mode Override */
+body.blackout-mode, 
+body.blackout-mode * {
+    background-color: #000000 !important;
+    color: #555555 !important; 
+    border-color: #111111 !important;
+    box-shadow: none !important;
+    background-image: none !important;
 }
