@@ -294,17 +294,20 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
             self._set_headers(200)
             self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
 
-        # 7. Real AI Triage Query using Gemini (Optimized with Verified Model & Safe Smart Fallback)
+        # 7. Real AI Triage Query using Gemini (Bulletproof Network Handler without Timeouts)
         elif clean_path == "/api/chat":
             msg = payload.get("message", "").strip()
-            response_text = "System is currently unavailable. Stay safe and broadcast an SOS beacon."
+            response_text = ""
 
             if client and msg:
                 sys_prompt = "You are LifeLine AI, a concise, highly efficient emergency survival and first aid assistant. Keep responses short, direct, and actionable. Focus entirely on safety, survival, and first aid. Do not use formatting like markdown tables or large text blocks; use simple, short paragraphs."
                 
+                # Ordered for extreme low-latency first, with reliable standard fallbacks
                 supported_models = [
+                    'models/gemini-3.1-flash-lite',
+                    'models/gemini-2.5-flash-lite',
                     'models/gemini-3.8-flash',
-                    'models/gemini-flash-latest'
+                    'models/gemini-flash-lite-latest'
                 ]
                 
                 success = False
@@ -314,13 +317,13 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
                         break
                         
                     try:
+                        # Notice: No custom http_options are set, relying fully on the standard SDK connection
                         ai_response = client.models.generate_content(
                             model=model_name,
                             contents=msg,
                             config=types.GenerateContentConfig(
                                 system_instruction=sys_prompt,
-                                temperature=0.2,
-                                http_options={"timeout": 10000} 
+                                temperature=0.2
                             )
                         )
                         if ai_response and ai_response.text:
@@ -333,14 +336,22 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
                         continue
                                 
                 if not success:
-                    print("❌ CRITICAL: All AI model endpoints failed. Using Smart Triage Fallback.")
+                    print("❌ CRITICAL: All AI model endpoints failed. Triggering Smart Triage Fallback.")
                     msg_lower = msg.lower()
-                    if "cook" in msg_lower or "food" in msg_lower:
+                    if "cook" in msg_lower or "food" in msg_lower or "eat" in msg_lower:
                         response_text = "Emergency Advisory: Do not use gas stoves or electrical appliances if flood water has entered your home. Rely on sealed emergency rations or packaged food."
-                    elif "medical" in msg_lower or "injury" in msg_lower:
-                        response_text = "Medical Alert: Move the injured person above the flood line immediately. Apply direct pressure to any bleeding."
+                    elif "medical" in msg_lower or "injury" in msg_lower or "bleed" in msg_lower:
+                        response_text = "Medical Alert: Move the injured person above the flood line immediately. Apply direct pressure to any bleeding and elevate the wound."
+                    elif "water" in msg_lower or "drink" in msg_lower:
+                        response_text = "Hydration Alert: Do not drink flood water under any circumstances. Use sealed bottled water or boil water strictly if an isolated, dry heat source is verified safe."
+                    elif "child" in msg_lower or "baby" in msg_lower:
+                        response_text = "Priority Notice: Infants and children are highly vulnerable to hypothermia and waterborne illness. Wrap them in dry material, keep them elevated, and flag your shelter urgency as Critical."
                     else:
                         response_text = "Emergency Advisory: Move to higher ground immediately if water levels are rising. Keep your emergency beacon active and conserve your phone battery."
+
+            # Final failsafe if message was empty or initialization completely broke
+            if not response_text:
+                 response_text = "System Advisory: Move to higher ground immediately and keep your emergency beacon active."
 
             self._set_headers(200)
             self.wfile.write(json.dumps({"response": response_text}).encode("utf-8"))
