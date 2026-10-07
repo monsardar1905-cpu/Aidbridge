@@ -294,7 +294,7 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
             self._set_headers(200)
             self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
 
-        # 7. Real AI Triage Query using Gemini (Optimized for Speed)
+        # 7. Real AI Triage Query using Gemini (Optimized with Multi-Model Fallbacks & Tight Timeout)
         elif clean_path == "/api/chat":
             msg = payload.get("message", "").strip()
             response_text = "System is currently unavailable. Stay safe and broadcast an SOS beacon."
@@ -303,41 +303,40 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
                 sys_prompt = "You are LifeLine AI, a concise, highly efficient emergency survival and first aid assistant. Keep responses short, direct, and actionable. Focus entirely on safety, survival, and first aid. Do not use formatting like markdown tables or large text blocks; use simple, short paragraphs."
                 
                 supported_models = [
-                    'gemini-flash-latest',
-                    'gemini-3.1-flash-lite',
-                    'gemini-3.7-flash'
+                    'gemini-3.8-flash',
+                    'gemini-3.7-flash',
+                    'gemini-3.5-flash',
+                    'gemini-3.5-flash-lite'
                 ]
                 
-                max_retries = 2
                 success = False
                 
                 for model_name in supported_models:
                     if success:
                         break
                         
-                    for attempt in range(max_retries):
-                        try:
-                            ai_response = client.models.generate_content(
-                                model=model_name,
-                                contents=msg,
-                                config=types.GenerateContentConfig(
-                                    system_instruction=sys_prompt,
-                                    temperature=0.2, 
-                                )
+                    try:
+                        ai_response = client.models.generate_content(
+                            model=model_name,
+                            contents=msg,
+                            config=types.GenerateContentConfig(
+                                system_instruction=sys_prompt,
+                                temperature=0.2,
+                                http_options={"timeout": 5000} 
                             )
+                        )
+                        if ai_response and ai_response.text:
                             response_text = ai_response.text
-                            print(f"✅ Success! Responded using: {model_name} on attempt {attempt + 1}")
+                            print(f"✅ Success! Responded using model: {model_name}")
                             success = True
                             break  
-                            
-                        except Exception as e:
-                            error_msg = str(e)
-                            print(f"⚠ {model_name} failed. Error: {error_msg}")
-                            break
+                    except Exception as e:
+                        print(f"⚠ Model {model_name} skipped or timed out. Error: {str(e)}")
+                        continue
                                 
                 if not success:
-                    print("❌ CRITICAL: All AI models failed.")
-                    response_text = "Network interference detected across all AI servers. Stay secure and broadcast your coordinates."
+                    print("❌ CRITICAL: All AI model endpoints failed.")
+                    response_text = "Emergency Advisory: Move to higher ground immediately if water levels are rising. Keep your emergency beacon active and conserve your phone battery."
 
             self._set_headers(200)
             self.wfile.write(json.dumps({"response": response_text}).encode("utf-8"))
