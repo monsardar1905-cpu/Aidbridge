@@ -294,7 +294,7 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
             self._set_headers(200)
             self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
 
-        # 7. Real AI Triage Query using Gemini (Optimized with Multi-Model Fallbacks & Tight Timeout)
+        # 7. Real AI Triage Query using Gemini (Using verified model identifiers)
         elif clean_path == "/api/chat":
             msg = payload.get("message", "").strip()
             response_text = "System is currently unavailable. Stay safe and broadcast an SOS beacon."
@@ -303,10 +303,9 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
                 sys_prompt = "You are LifeLine AI, a concise, highly efficient emergency survival and first aid assistant. Keep responses short, direct, and actionable. Focus entirely on safety, survival, and first aid. Do not use formatting like markdown tables or large text blocks; use simple, short paragraphs."
                 
                 supported_models = [
-                    'gemini-3.8-flash',
-                    'gemini-3.7-flash',
-                    'gemini-3.5-flash',
-                    'gemini-3.5-flash-lite'
+                    'models/gemini-2.5-flash',
+                    'models/gemini-flash-latest',
+                    'models/gemini-3.1-flash-lite'
                 ]
                 
                 success = False
@@ -331,7 +330,7 @@ class AidBridgeHandler(SimpleHTTPRequestHandler):
                             success = True
                             break  
                     except Exception as e:
-                        print(f"⚠ Model {model_name} skipped or timed out. Error: {str(e)}")
+                        print(f"⚠ Model {model_name} failed. Error: {str(e)}")
                         continue
                                 
                 if not success:
